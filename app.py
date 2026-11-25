@@ -100,7 +100,32 @@ elif page == "Bird Detection":
             st.metric("Bird Detections", total_birds)
 
             st.subheader("Annotated Bird Detection Video")
-            st.video(output_path)
+            converted_path = tempfile.NamedTemporaryFile(
+    delete=False, suffix=".mp4"
+).name
+
+ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+conversion = subprocess.run(
+    [
+        ffmpeg_exe,
+        "-y",
+        "-i", output_path,
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        converted_path
+    ],
+    capture_output=True,
+    text=True
+)
+
+if conversion.returncode == 0:
+    st.success("Video converted successfully!")
+    st.video(converted_path)
+else:
+    st.error("Video conversion failed.")
+    st.code(conversion.stderr[-1500:])
 
     st.subheader("Previous Detection Result")
 
