@@ -443,7 +443,7 @@ elif page == "Path Planning":
                 "Yes" if feasible else "No"
             )
         })
-
+st.session_state["route_comparison_data"] = comparison_data
     st.dataframe(
         comparison_data,
         use_container_width=True
@@ -495,17 +495,84 @@ elif page == "Path Planning":
     st.pyplot(fig)
 
 
+
 elif page == "Route & Energy Analysis":
     st.header("Route and Energy Analysis")
 
-    if os.path.exists("route_comparison.csv"):
-        data = pd.read_csv("route_comparison.csv")
-        st.dataframe(data, use_container_width=True)
+    comparison_data = st.session_state.get(
+        "route_comparison_data",
+        []
+    )
 
-        st.subheader("Energy Comparison")
-        st.bar_chart(data.set_index("Route")["Energy"])
+    if comparison_data:
+
+        data = pd.DataFrame(comparison_data)
+
+        # Illustrative energy model
+        energy_factor = 1.0
+
+        data["Estimated Energy (units)"] = (
+            data["Distance (map units)"] * energy_factor
+        ).round(2)
+
+        st.subheader("1. Route Comparison")
+
+        st.dataframe(
+            data,
+            use_container_width=True
+        )
+
+        st.subheader("2. Estimated Energy Comparison")
+
+        energy_chart = data.set_index("Route")[
+            "Estimated Energy (units)"
+        ]
+
+        st.bar_chart(energy_chart)
+
+        st.subheader("3. Energy Summary")
+
+        for _, row in data.iterrows():
+            st.metric(
+                f"{row['Route']} Route",
+                f"{row['Estimated Energy (units)']:.2f} units"
+            )
+
+        if "Optimized" in data["Route"].values:
+            original_energy = data.loc[
+                data["Route"] == "Original",
+                "Estimated Energy (units)"
+            ].iloc[0]
+
+            optimized_energy = data.loc[
+                data["Route"] == "Optimized",
+                "Estimated Energy (units)"
+            ].iloc[0]
+
+            if original_energy > 0:
+                saving = (
+                    (original_energy - optimized_energy)
+                    / original_energy
+                ) * 100
+
+                st.subheader("4. Energy Saving")
+
+                st.metric(
+                    "Estimated Energy Reduction",
+                    f"{saving:.2f}%"
+                )
+
     else:
-        st.warning("Route comparison file not found.")
+        st.warning(
+            "No route data available. "
+            "Run Bird Tracking and Path Planning first."
+        )
+
+    st.caption(
+        "Note: Energy is estimated using 1 illustrative "
+        "energy unit per map unit. This is not measured "
+        "UAV power or battery consumption."
+    )
 
 st.sidebar.divider()
 st.sidebar.caption("UAV Path Planning Project | 2026")
