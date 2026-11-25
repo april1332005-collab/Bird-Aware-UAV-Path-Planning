@@ -56,54 +56,54 @@ elif page == "Bird Detection":
                 temp.write(uploaded_video.read())
                 video_path = temp.name
 
+            cap = cv2.VideoCapture(video_path)
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            cap.release()
+
+            output_path = tempfile.NamedTemporaryFile(
+                delete=False, suffix=".mp4"
+            ).name
+
+            writer = cv2.VideoWriter(
+                output_path,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                fps if fps > 0 else 25,
+                (width, height)
+            )
+
             st.info("Detecting birds... Please wait.")
 
-           cap = cv2.VideoCapture(video_path)
+            results = model.predict(
+                source=video_path,
+                classes=[14],
+                conf=0.25,
+                stream=True,
+                save=False
+            )
 
-fps = cap.get(cv2.CAP_PROP_FPS)
-width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-cap.release()
+            total_frames = 0
+            total_birds = 0
 
-output_path = tempfile.NamedTemporaryFile(
-    delete=False, suffix=".mp4"
-).name
+            for result in results:
+                total_frames += 1
+                total_birds += len(result.boxes)
+                writer.write(result.plot())
 
-writer = cv2.VideoWriter(
-    output_path,
-    cv2.VideoWriter_fourcc(*"mp4v"),
-    fps if fps > 0 else 25,
-    (width, height)
-)
+            writer.release()
 
-st.info("Detecting birds... Please wait.")
+            st.success("Detection completed!")
+            st.metric("Frames Processed", total_frames)
+            st.metric("Bird Detections", total_birds)
 
-results = model.predict(
-    source=video_path,
-    classes=[14],
-    conf=0.25,
-    stream=True,
-    save=False
-)
+            st.subheader("Annotated Bird Detection Video")
+            st.video(output_path)
 
-total_frames = 0
-total_birds = 0
+    st.subheader("Previous Detection Result")
 
-for result in results:
-    total_frames += 1
-    total_birds += len(result.boxes)
-
-    annotated_frame = result.plot()
-    writer.write(annotated_frame)
-
-writer.release()
-
-st.success("Detection completed!")
-st.metric("Frames Processed", total_frames)
-st.metric("Bird Detections", total_birds)
-
-st.subheader("Annotated Bird Detection Video")
-st.video(output_path)
+    if os.path.exists("bird_detection_final.mp4"):
+        st.video("bird_detection_final.mp4")
 elif page == "Bird Tracking":
     st.header("Bird Tracking")
     if os.path.exists("bird_tracking_final.mp4"):
