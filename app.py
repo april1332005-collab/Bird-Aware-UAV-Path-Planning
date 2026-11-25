@@ -294,22 +294,23 @@ elif page == "Bird Tracking":
 
 
 
+
 elif page == "Path Planning":
     st.header("UAV Path Planning")
 
     st.write(
-        "Bird positions are automatically extracted "
-        "from the Bird Tracking page."
+        "Automatic bird-aware route planning using "
+        "coordinates extracted from the tracking video."
     )
 
-    # Get coordinates from Bird Tracking
+    # 1. Load tracked bird coordinates
     birds = st.session_state.get("tracked_birds", [])
 
     if not birds:
         st.warning("No bird coordinates available.")
         st.info(
             "Go to Bird Tracking, upload a video, "
-            "and click Run Bird Tracking first."
+            "and run Bird Tracking first."
         )
         st.stop()
 
@@ -317,13 +318,18 @@ elif page == "Path Planning":
 
     st.subheader("1. Extracted Bird Positions")
 
-    st.write("Coordinates (normalized image map):")
+    bird_data = []
 
     for i, bird in enumerate(birds):
-        st.write(
-            f"Bird {i+1}: X = {bird[0]:.2f}, Y = {bird[1]:.2f}"
-        )
+        bird_data.append({
+            "Bird ID": i + 1,
+            "X Coordinate": round(bird[0], 2),
+            "Y Coordinate": round(bird[1], 2)
+        })
 
+    st.dataframe(bird_data, use_container_width=True)
+
+    # 2. Clearance setting
     clearance_limit = st.slider(
         "Minimum assumed clearance (map units)",
         min_value=1,
@@ -331,9 +337,11 @@ elif page == "Path Planning":
         value=10
     )
 
+    # 3. Define routes
     original = [(0, 0), (100, 100)]
     manual = [(0, 0), (20, 90), (100, 100)]
 
+    # 4. Distance from bird to route segment
     def point_segment_distance(point, start, end):
         px, py = point
         x1, y1 = start
@@ -359,6 +367,7 @@ elif page == "Path Planning":
             py - closest_y
         )
 
+    # 5. Calculate route distance
     def route_distance(route):
         distance = 0
 
@@ -370,6 +379,7 @@ elif page == "Path Planning":
 
         return distance
 
+    # 6. Calculate minimum bird clearance
     def route_clearance(route, bird_positions):
         distances = []
 
@@ -385,6 +395,7 @@ elif page == "Path Planning":
 
         return min(distances) if distances else float("inf")
 
+    # 7. Automatic route optimization
     st.subheader("2. Automatic Route Optimization")
 
     candidates = []
@@ -413,17 +424,17 @@ elif page == "Path Planning":
 
     if candidates:
         best = min(candidates, key=lambda item: item[0])
-
         routes["Optimized"] = best[1]
 
-        st.success("A feasible optimized route was found!")
+        st.success("Optimized route found!")
 
     else:
         st.warning(
             "No feasible optimized route found. "
-            "Try a lower assumed clearance threshold."
+            "Try reducing the clearance threshold."
         )
 
+    # 8. Route comparison
     st.subheader("3. Route Comparison")
 
     comparison_data = []
@@ -443,12 +454,16 @@ elif page == "Path Planning":
                 "Yes" if feasible else "No"
             )
         })
-st.session_state["route_comparison_data"] = comparison_data
+
+    # Save data for Energy Analysis page
+    st.session_state["route_comparison_data"] = comparison_data
+
     st.dataframe(
         comparison_data,
         use_container_width=True
     )
 
+    # 9. Route graph
     st.subheader("4. Dynamic UAV Route Graph")
 
     fig, ax = plt.subplots(figsize=(9, 6))
@@ -484,8 +499,8 @@ st.session_state["route_comparison_data"] = comparison_data
     ax.set_xlim(0, 100)
     ax.set_ylim(0, 100)
 
-    ax.set_xlabel("Normalized X coordinate")
-    ax.set_ylabel("Normalized Y coordinate")
+    ax.set_xlabel("Normalized X Coordinate")
+    ax.set_ylabel("Normalized Y Coordinate")
 
     ax.set_title("Bird-Aware UAV Path Planning")
 
@@ -494,6 +509,11 @@ st.session_state["route_comparison_data"] = comparison_data
 
     st.pyplot(fig)
 
+    st.caption(
+        "Simulation uses normalized image coordinates. "
+        "Clearance values are map units, not measured "
+        "real-world distances."
+    )
 
 
 elif page == "Route & Energy Analysis":
