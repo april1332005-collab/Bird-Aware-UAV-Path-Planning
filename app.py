@@ -1,9 +1,13 @@
-
+import tempfile
+from pathlib import Path
+from ultralytics import YOLO
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
-
+@st.cache_resource
+def load_model():
+    return YOLO("yolov8n.pt")
 st.set_page_config(
     page_title="Bird-Aware UAV",
     page_icon="🛩️",
