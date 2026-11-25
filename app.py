@@ -200,19 +200,44 @@ elif page == "Bird Tracking":
                 (width, height)
             )
 
-            total_frames = 0
-            unique_ids = set()
+           
+total_frames = 0
+unique_ids = set()
+latest_positions = {}
 
-            for result in results:
-                total_frames += 1
+for result in results:
+    total_frames += 1
 
-                if result.boxes.id is not None:
-                    ids = result.boxes.id.int().cpu().tolist()
-                    unique_ids.update(ids)
+    if result.boxes.id is not None:
+        ids = result.boxes.id.int().cpu().tolist()
+        boxes = result.boxes.xywh.cpu().tolist()
 
-                writer.write(result.plot())
+        unique_ids.update(ids)
 
-            writer.release()
+        for track_id, box in zip(ids, boxes):
+            center_x = box[0]
+            center_y = box[1]
+
+            normalized_x = (center_x / width) * 100
+            normalized_y = (center_y / height) * 100
+
+            latest_positions[track_id] = (
+                normalized_x,
+                normalized_y
+            )
+
+    writer.write(result.plot())
+
+writer.release()
+
+st.session_state["tracked_birds"] = list(
+    latest_positions.values()
+)
+
+st.success("Bird coordinates extracted successfully!")
+st.write("Extracted bird positions:")
+st.write(st.session_state["tracked_birds"])
+
 
             st.success("Tracking completed!")
 
