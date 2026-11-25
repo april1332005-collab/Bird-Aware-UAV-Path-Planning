@@ -240,9 +240,8 @@ st.write(st.session_state["tracked_birds"])
 
 
 st.success("Tracking completed!")
-
-            st.metric("Frames Processed", total_frames)
-            st.metric("Unique Tracking IDs", len(unique_ids))
+st.metric("Frames Processed", total_frames)
+st.metric("Unique Tracking IDs", len(unique_ids))
 
             converted_path = tempfile.NamedTemporaryFile(
                 delete=False,
