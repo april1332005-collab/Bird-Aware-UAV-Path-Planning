@@ -347,15 +347,16 @@ elif page == "Bird Tracking":
 
 
 
+
 elif page == "Path Planning":
     st.header("UAV Path Planning")
 
     st.write(
-        "Automatic bird-aware route planning using "
+        "Bird-aware UAV route planning using "
         "coordinates extracted from the tracking video."
     )
 
-    # 1. Load tracked bird coordinates
+    # 1. Load tracked bird positions
     birds = st.session_state.get("tracked_birds", [])
 
     if not birds:
@@ -381,7 +382,7 @@ elif page == "Path Planning":
 
     st.dataframe(bird_data, use_container_width=True)
 
-    # 2. Clearance setting
+    # 2. Clearance threshold
     clearance_limit = st.slider(
         "Minimum assumed clearance (map units)",
         min_value=1,
@@ -389,11 +390,11 @@ elif page == "Path Planning":
         value=10
     )
 
-    # 3. Define routes
+    # 3. Route definitions
     original = [(0, 0), (100, 100)]
     manual = [(0, 0), (20, 90), (100, 100)]
 
-    # 4. Distance from bird to route segment
+    # 4. Distance from a point to a route segment
     def point_segment_distance(point, start, end):
         px, py = point
         x1, y1 = start
@@ -419,7 +420,7 @@ elif page == "Path Planning":
             py - closest_y
         )
 
-    # 5. Calculate route distance
+    # 5. Route distance
     def route_distance(route):
         distance = 0
 
@@ -431,7 +432,7 @@ elif page == "Path Planning":
 
         return distance
 
-    # 6. Calculate minimum bird clearance
+    # 6. Minimum bird clearance
     def route_clearance(route, bird_positions):
         distances = []
 
@@ -447,44 +448,90 @@ elif page == "Path Planning":
 
         return min(distances) if distances else float("inf")
 
-    # 7. Automatic route optimization
+    # 7. Two-waypoint optimization
     st.subheader("2. Automatic Route Optimization")
 
     candidates = []
 
-    for x in range(5, 100, 5):
-        for y in range(5, 100, 5):
+    # Search grid: 10-unit intervals
+    waypoints = [
+        (x, y)
+        for x in range(10, 100, 10)
+        for y in range(10, 100, 10)
+    ]
+
+    total_combinations = 0
+
+    for wp1 in waypoints:
+        for wp2 in waypoints:
+
+            if wp1 == wp2:
+                continue
 
             candidate = [
                 (0, 0),
-                (x, y),
+                wp1,
+                wp2,
                 (100, 100)
             ]
+
+            total_combinations += 1
 
             distance = route_distance(candidate)
             clearance = route_clearance(candidate, birds)
 
-            if clearance >= clearance_limit:
-                candidates.append(
-                    (distance, candidate, clearance)
-                )
+            candidates.append(
+                (distance, candidate, clearance)
+            )
+
+    # Find shortest route meeting the threshold
+    feasible_candidates = [
+        item for item in candidates
+        if item[2] >= clearance_limit
+    ]
 
     routes = {
         "Original": original,
         "Manual": manual
     }
 
-    if candidates:
-        best = min(candidates, key=lambda item: item[0])
+    if feasible_candidates:
+        best = min(
+            feasible_candidates,
+            key=lambda item: item[0]
+        )
+
         routes["Optimized"] = best[1]
 
-        st.success("Optimized route found!")
+        st.success(
+            "Feasible optimized route found!"
+        )
+
+        st.write(
+            f"Best route clearance: {best[2]:.2f} map units"
+        )
 
     else:
-        st.warning(
-            "No feasible optimized route found. "
-            "Try reducing the clearance threshold."
+        # Select greatest clearance among tested routes
+        best = max(
+            candidates,
+            key=lambda item: (item[2], -item[0])
         )
+
+        routes["Best Available"] = best[1]
+
+        st.warning(
+            "No tested route meets the assumed clearance. "
+            "Showing the route with the greatest clearance."
+        )
+
+        st.write(
+            f"Best available clearance: {best[2]:.2f} map units"
+        )
+
+    st.write(
+        f"Waypoint combinations tested: {total_combinations}"
+    )
 
     # 8. Route comparison
     st.subheader("3. Route Comparison")
@@ -507,7 +554,7 @@ elif page == "Path Planning":
             )
         })
 
-    # Save data for Energy Analysis page
+    # Save results for Energy Analysis
     st.session_state["route_comparison_data"] = comparison_data
 
     st.dataframe(
@@ -554,7 +601,7 @@ elif page == "Path Planning":
     ax.set_xlabel("Normalized X Coordinate")
     ax.set_ylabel("Normalized Y Coordinate")
 
-    ax.set_title("Bird-Aware UAV Path Planning")
+    ax.set_title("Two-Waypoint Bird-Aware UAV Path Planning")
 
     ax.legend()
     ax.grid()
@@ -562,10 +609,11 @@ elif page == "Path Planning":
     st.pyplot(fig)
 
     st.caption(
-        "Simulation uses normalized image coordinates. "
-        "Clearance values are map units, not measured "
-        "real-world distances."
+        "This is a 2D simulation using normalized image "
+        "coordinates. Clearance is not a real-world "
+        "collision-safety measurement."
     )
+
 
 
 elif page == "Route & Energy Analysis":
