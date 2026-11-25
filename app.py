@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+
 @st.cache_resource
 def load_model():
     return YOLO("yolov8n.pt")
