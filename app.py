@@ -46,43 +46,43 @@ elif page == "Bird Detection":
     )
 
     if uploaded_video:
-    st.success("Video uploaded successfully!")
+        st.success("Video uploaded successfully!")
 
-    if st.button("Run Bird Detection"):
-        model = load_model()
+        if st.button("Run Bird Detection"):
+            model = load_model()
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp:
-            temp.write(uploaded_video.read())
-            video_path = temp.name
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp:
+                temp.write(uploaded_video.read())
+                video_path = temp.name
 
-        st.info("Detecting birds... Please wait.")
+            st.info("Detecting birds... Please wait.")
 
-        results = model.predict(
-            source=video_path,
-            classes=[14],
-            conf=0.25,
-            save=True,
-            project="runs/detect",
-            name="bird_result",
-            exist_ok=True,
-            stream=True
-        )
+            results = model.predict(
+                source=video_path,
+                classes=[14],
+                conf=0.25,
+                save=True,
+                project="runs/detect",
+                name="bird_result",
+                exist_ok=True,
+                stream=True
+            )
 
-        total_frames = 0
-        total_birds = 0
+            total_frames = 0
+            total_birds = 0
 
-        for result in results:
-            total_frames += 1
-            total_birds += len(result.boxes)
+            for result in results:
+                total_frames += 1
+                total_birds += len(result.boxes)
 
-        st.success("Detection completed!")
+            st.success("Detection completed!")
+            st.metric("Frames Processed", total_frames)
+            st.metric("Bird Detections", total_birds)
 
-        st.metric("Frames Processed", total_frames)
-        st.metric("Bird Detections", total_birds)
     st.subheader("Previous Detection Result")
+
     if os.path.exists("bird_detection_final.mp4"):
         st.video("bird_detection_final.mp4")
-
 elif page == "Bird Tracking":
     st.header("Bird Tracking")
     if os.path.exists("bird_tracking_final.mp4"):
