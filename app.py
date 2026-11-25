@@ -40,6 +40,7 @@ if page == "Home":
     st.info("Welcome to the Bird-Aware UAV decision-support dashboard.")
 
 
+
 elif page == "Bird Detection":
     st.header("Bird Detection")
 
@@ -54,83 +55,97 @@ elif page == "Bird Detection":
         if st.button("Run Bird Detection"):
             model = load_model()
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp:
-                temp.write(uploaded_video.read())
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=Path(uploaded_video.name).suffix
+            ) as temp:
+                temp.write(uploaded_video.getvalue())
                 video_path = temp.name
-
-            cap = cv2.VideoCapture(video_path)
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            cap.release()
-
-            output_path = tempfile.NamedTemporaryFile(
-                delete=False, suffix=".mp4"
-            ).name
-
-            writer = cv2.VideoWriter(
-                output_path,
-                cv2.VideoWriter_fourcc(*"mp4v"),
-                fps if fps > 0 else 25,
-                (width, height)
-            )
 
             st.info("Detecting birds... Please wait.")
 
-            results = model.predict(
-                source=video_path,
-                classes=[14],
-                conf=0.25,
-                stream=True,
-                save=False
-            )
+            cap = cv2.VideoCapture(video_path)
 
-            total_frames = 0
-            total_birds = 0
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-            for result in results:
-                total_frames += 1
-                total_birds += len(result.boxes)
-                writer.write(result.plot())
+            cap.release()
 
-            writer.release()
+            if width <= 0 or height <= 0:
+                st.error("Unable to read the uploaded video.")
+            else:
+                output_path = tempfile.NamedTemporaryFile(
+                    delete=False,
+                    suffix=".mp4"
+                ).name
 
-            st.success("Detection completed!")
-            st.metric("Frames Processed", total_frames)
-            st.metric("Bird Detections", total_birds)
+                writer = cv2.VideoWriter(
+                    output_path,
+                    cv2.VideoWriter_fourcc(*"mp4v"),
+                    fps if fps > 0 else 25,
+                    (width, height)
+                )
 
-            st.subheader("Annotated Bird Detection Video")
-            converted_path = tempfile.NamedTemporaryFile(
-    delete=False, suffix=".mp4"
-).name
+                results = model.predict(
+                    source=video_path,
+                    classes=[14],
+                    conf=0.25,
+                    stream=True,
+                    save=False
+                )
 
-ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+                total_frames = 0
+                total_birds = 0
 
-conversion = subprocess.run(
-    [
-        ffmpeg_exe,
-        "-y",
-        "-i", output_path,
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
-        converted_path
-    ],
-    capture_output=True,
-    text=True
-)
+                for result in results:
+                    total_frames += 1
+                    total_birds += len(result.boxes)
+                    writer.write(result.plot())
 
-if conversion.returncode == 0:
-    st.success("Video converted successfully!")
-    st.video(converted_path)
-else:
-    st.error("Video conversion failed.")
-    st.code(conversion.stderr[-1500:])
+                writer.release()
+
+                st.success("Detection completed!")
+
+                st.metric("Frames Processed", total_frames)
+                st.metric("Bird Detections", total_birds)
+
+                st.subheader("Converting video...")
+
+                converted_path = tempfile.NamedTemporaryFile(
+                    delete=False,
+                    suffix=".mp4"
+                ).name
+
+                ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+                conversion = subprocess.run(
+                    [
+                        ffmpeg_exe,
+                        "-y",
+                        "-i", output_path,
+                        "-c:v", "libx264",
+                        "-pix_fmt", "yuv420p",
+                        "-movflags", "+faststart",
+                        converted_path
+                    ],
+                    capture_output=True,
+                    text=True
+                )
+
+                if conversion.returncode == 0:
+                    st.success("Video conversion successful!")
+                    st.subheader("Annotated Bird Detection Video")
+                    st.video(converted_path)
+                else:
+                    st.error("Video conversion failed.")
+                    st.code(conversion.stderr[-1500:])
 
     st.subheader("Previous Detection Result")
 
     if os.path.exists("bird_detection_final.mp4"):
         st.video("bird_detection_final.mp4")
+
 elif page == "Bird Tracking":
     st.header("Bird Tracking")
     if os.path.exists("bird_tracking_final.mp4"):
