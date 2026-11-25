@@ -29,16 +29,68 @@ page = st.sidebar.radio(
 st.title("AI-Based Bird-Aware UAV System")
 st.caption("Bird Detection | Tracking | Path Optimization")
 
+
 if page == "Home":
-    st.header("Project Overview")
-    st.write("An AI-based software system for bird-aware UAV path planning and energy analysis.")
+    st.title("AI-Based Bird-Aware UAV Path Planning")
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Video Frames", "488")
-    c2.metric("Bird Detection Frames", "268")
-    c3.metric("Total Detections", "982")
+    st.write(
+        "An AI-based software prototype for bird detection, "
+        "tracking and UAV route planning."
+    )
 
-    st.info("Welcome to the Bird-Aware UAV decision-support dashboard.")
+    st.divider()
+
+    st.subheader("Project Overview")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "Bird Tracking IDs",
+            len(st.session_state.get("tracked_birds", []))
+        )
+
+    with col2:
+        route_data = st.session_state.get(
+            "route_comparison_data", []
+        )
+        st.metric("Routes Compared", len(route_data))
+
+    with col3:
+        st.metric(
+            "Optimized Route",
+            "Available" if any(
+                r["Route"] == "Optimized"
+                for r in route_data
+            ) else "Pending"
+        )
+
+    st.divider()
+
+    st.subheader("System Workflow")
+
+    st.markdown("""
+    1. **Bird Detection** – YOLOv8 identifies birds in uploaded videos.
+    2. **Bird Tracking** – ByteTrack follows detected birds across frames.
+    3. **Coordinate Extraction** – Bird positions are extracted from tracking results.
+    4. **Path Planning** – Alternative UAV routes are evaluated.
+    5. **Energy Analysis** – Estimated route energy is compared.
+    """)
+
+    st.divider()
+
+    st.subheader("Project Technology")
+
+    st.write(
+        "Python | Streamlit | YOLOv8 | ByteTrack | "
+        "OpenCV | Matplotlib | Pandas"
+    )
+
+    st.caption(
+        "Software simulation prototype – "
+        "not connected to a physical UAV."
+    )
+
 
 
 
