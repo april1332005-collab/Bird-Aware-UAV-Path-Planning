@@ -76,19 +76,17 @@ elif page == "Bird Detection":
                 total_birds += len(result.boxes)
 
             st.success("Detection completed!")
+            st.metric("Frames Processed", total_frames)
+            st.metric("Bird Detections", total_birds)
 
-st.metric("Frames Processed", total_frames)
-st.metric("Bird Detections", total_birds)
+            output_dir = Path("runs/detect/bird_result")
+            video_files = list(output_dir.glob("*.avi")) + list(output_dir.glob("*.mp4"))
 
-output_dir = Path("runs/detect/bird_result")
-
-video_files = list(output_dir.glob("*.avi")) + list(output_dir.glob("*.mp4"))
-
-if video_files:
-    st.subheader("Annotated Bird Detection Video")
-    st.video(str(video_files[0]))
-else:
-    st.warning("Detection completed, but output video was not found.")
+            if video_files:
+                st.subheader("Annotated Bird Detection Video")
+                st.video(str(video_files[0]))
+            else:
+                st.warning("Detection completed, but output video was not found.")
 
     st.subheader("Previous Detection Result")
 
