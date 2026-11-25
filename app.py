@@ -293,41 +293,39 @@ elif page == "Bird Tracking":
 
 
 
+
 elif page == "Path Planning":
     st.header("UAV Path Planning")
 
-    st.write("Adjust bird positions and clearance to compare UAV routes.")
+    st.write(
+        "Bird positions are automatically extracted "
+        "from the Bird Tracking page."
+    )
 
-    st.subheader("1. Bird Positions")
+    # Get coordinates from Bird Tracking
+    birds = st.session_state.get("tracked_birds", [])
 
-    default_birds = [(35, 38), (55, 48), (72, 80), (45, 65)]
-    birds = []
+    if not birds:
+        st.warning("No bird coordinates available.")
+        st.info(
+            "Go to Bird Tracking, upload a video, "
+            "and click Run Bird Tracking first."
+        )
+        st.stop()
 
-    for i, (default_x, default_y) in enumerate(default_birds):
-        col1, col2 = st.columns(2)
+    st.success(f"{len(birds)} tracked bird positions loaded!")
 
-        with col1:
-            bx = st.number_input(
-                f"Bird {i+1} X coordinate",
-                min_value=0.0,
-                max_value=100.0,
-                value=float(default_x),
-                key=f"bird_x_{i}"
-            )
+    st.subheader("1. Extracted Bird Positions")
 
-        with col2:
-            by = st.number_input(
-                f"Bird {i+1} Y coordinate",
-                min_value=0.0,
-                max_value=100.0,
-                value=float(default_y),
-                key=f"bird_y_{i}"
-            )
+    st.write("Coordinates (normalized image map):")
 
-        birds.append((bx, by))
+    for i, bird in enumerate(birds):
+        st.write(
+            f"Bird {i+1}: X = {bird[0]:.2f}, Y = {bird[1]:.2f}"
+        )
 
     clearance_limit = st.slider(
-        "Minimum assumed clearance (m)",
+        "Minimum assumed clearance (map units)",
         min_value=1,
         max_value=30,
         value=10
@@ -347,28 +345,41 @@ elif page == "Path Planning":
         if dx == 0 and dy == 0:
             return math.hypot(px - x1, py - y1)
 
-        t = ((px-x1)*dx + (py-y1)*dy) / (dx*dx + dy*dy)
+        t = (
+            (px - x1) * dx + (py - y1) * dy
+        ) / (dx * dx + dy * dy)
+
         t = max(0, min(1, t))
 
-        closest_x = x1 + t*dx
-        closest_y = y1 + t*dy
+        closest_x = x1 + t * dx
+        closest_y = y1 + t * dy
 
-        return math.hypot(px-closest_x, py-closest_y)
+        return math.hypot(
+            px - closest_x,
+            py - closest_y
+        )
 
     def route_distance(route):
         distance = 0
-        for i in range(len(route)-1):
-            distance += math.dist(route[i], route[i+1])
+
+        for i in range(len(route) - 1):
+            distance += math.dist(
+                route[i],
+                route[i + 1]
+            )
+
         return distance
 
     def route_clearance(route, bird_positions):
         distances = []
 
         for bird in bird_positions:
-            for i in range(len(route)-1):
+            for i in range(len(route) - 1):
                 distances.append(
                     point_segment_distance(
-                        bird, route[i], route[i+1]
+                        bird,
+                        route[i],
+                        route[i + 1]
                     )
                 )
 
@@ -380,13 +391,20 @@ elif page == "Path Planning":
 
     for x in range(5, 100, 5):
         for y in range(5, 100, 5):
-            candidate = [(0, 0), (x, y), (100, 100)]
+
+            candidate = [
+                (0, 0),
+                (x, y),
+                (100, 100)
+            ]
 
             distance = route_distance(candidate)
             clearance = route_clearance(candidate, birds)
 
             if clearance >= clearance_limit:
-                candidates.append((distance, candidate, clearance))
+                candidates.append(
+                    (distance, candidate, clearance)
+                )
 
     routes = {
         "Original": original,
@@ -395,25 +413,41 @@ elif page == "Path Planning":
 
     if candidates:
         best = min(candidates, key=lambda item: item[0])
+
         routes["Optimized"] = best[1]
+
         st.success("A feasible optimized route was found!")
+
     else:
         st.warning(
-            "No feasible route found with the current clearance. "
-            "Try adjusting bird positions or the clearance threshold."
+            "No feasible optimized route found. "
+            "Try a lower assumed clearance threshold."
         )
 
     st.subheader("3. Route Comparison")
 
+    comparison_data = []
+
     for name, route in routes.items():
+
         distance = route_distance(route)
         clearance = route_clearance(route, birds)
+
         feasible = clearance >= clearance_limit
 
-        st.write(f"**{name}**")
-        st.write(f"Distance: {distance:.2f} m")
-        st.write(f"Minimum clearance: {clearance:.2f} m")
-        st.write(f"Meets assumed clearance: {'Yes' if feasible else 'No'}")
+        comparison_data.append({
+            "Route": name,
+            "Distance (map units)": round(distance, 2),
+            "Minimum Clearance (map units)": round(clearance, 2),
+            "Meets Assumed Clearance": (
+                "Yes" if feasible else "No"
+            )
+        })
+
+    st.dataframe(
+        comparison_data,
+        use_container_width=True
+    )
 
     st.subheader("4. Dynamic UAV Route Graph")
 
@@ -424,17 +458,37 @@ elif page == "Path Planning":
         ax.plot(x, y, marker="o", label=name)
 
     bx, by = zip(*birds)
-    ax.scatter(bx, by, color="red", marker="x",
-               s=100, label="Simulated Birds")
 
-    ax.scatter(0, 0, color="green", s=100, label="Start")
-    ax.scatter(100, 100, color="black", s=100, label="Destination")
+    ax.scatter(
+        bx, by,
+        color="red",
+        marker="x",
+        s=100,
+        label="Tracked Birds"
+    )
+
+    ax.scatter(
+        0, 0,
+        color="green",
+        s=100,
+        label="Start"
+    )
+
+    ax.scatter(
+        100, 100,
+        color="black",
+        s=100,
+        label="Destination"
+    )
 
     ax.set_xlim(0, 100)
     ax.set_ylim(0, 100)
-    ax.set_xlabel("X (m)")
-    ax.set_ylabel("Y (m)")
-    ax.set_title("Dynamic UAV Path Planning")
+
+    ax.set_xlabel("Normalized X coordinate")
+    ax.set_ylabel("Normalized Y coordinate")
+
+    ax.set_title("Bird-Aware UAV Path Planning")
+
     ax.legend()
     ax.grid()
 
