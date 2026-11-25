@@ -30,6 +30,7 @@ st.title("AI-Based Bird-Aware UAV System")
 st.caption("Bird Detection | Tracking | Path Optimization")
 
 
+
 if page == "Home":
     st.title("AI-Based Bird-Aware UAV Path Planning")
 
@@ -40,6 +41,38 @@ if page == "Home":
 
     st.divider()
 
+    # COMMON VIDEO UPLOAD
+    st.subheader("Upload Project Video")
+
+    uploaded_video = st.file_uploader(
+        "Upload your video here (only once)",
+        type=["mp4", "avi", "mov"],
+        key="common_video_uploader"
+    )
+
+    if uploaded_video is not None:
+        st.session_state["uploaded_video_bytes"] = (
+            uploaded_video.getvalue()
+        )
+        st.session_state["uploaded_video_name"] = (
+            uploaded_video.name
+        )
+
+    if "uploaded_video_bytes" in st.session_state:
+        st.success(
+            f"Video ready: "
+            f"{st.session_state['uploaded_video_name']}"
+        )
+        st.info(
+            "This video will be used by both Bird Detection "
+            "and Bird Tracking."
+        )
+    else:
+        st.warning("Upload a video to begin the project.")
+
+    st.divider()
+
+    # PROJECT OVERVIEW
     st.subheader("Project Overview")
 
     col1, col2, col3 = st.columns(3)
@@ -57,22 +90,25 @@ if page == "Home":
         st.metric("Routes Compared", len(route_data))
 
     with col3:
+        route_available = any(
+            r["Route"] in ["Optimized", "Best Available"]
+            for r in route_data
+        )
+
         st.metric(
             "Optimized Route",
-            "Available" if any(
-                r["Route"] == "Optimized"
-                for r in route_data
-            ) else "Pending"
+            "Available" if route_available else "Pending"
         )
 
     st.divider()
 
+    # WORKFLOW
     st.subheader("System Workflow")
 
     st.markdown("""
-    1. **Bird Detection** – YOLOv8 identifies birds in uploaded videos.
-    2. **Bird Tracking** – ByteTrack follows detected birds across frames.
-    3. **Coordinate Extraction** – Bird positions are extracted from tracking results.
+    1. **Video Upload** – Upload the video once.
+    2. **Bird Detection** – YOLOv8 identifies birds.
+    3. **Bird Tracking** – ByteTrack assigns IDs and extracts coordinates.
     4. **Path Planning** – Alternative UAV routes are evaluated.
     5. **Energy Analysis** – Estimated route energy is compared.
     """)
@@ -94,28 +130,48 @@ if page == "Home":
 
 
 
+
 elif page == "Bird Detection":
     st.header("Bird Detection")
 
-    uploaded_video = st.file_uploader(
-        "Upload a new bird video",
-        type=["mp4", "avi", "mov"]
+    st.write(
+        "YOLOv8 identifies birds in the video uploaded on Home."
     )
 
-    if uploaded_video:
-        st.success("Video uploaded successfully!")
+    video_bytes = st.session_state.get(
+        "uploaded_video_bytes"
+    )
+
+    video_name = st.session_state.get(
+        "uploaded_video_name"
+    )
+
+    if video_bytes is None:
+        st.warning("Please upload a video on the Home page first.")
+
+    else:
+        st.success(f"Using video: {video_name}")
 
         if st.button("Run Bird Detection"):
+
             model = load_model()
 
             with tempfile.NamedTemporaryFile(
                 delete=False,
-                suffix=Path(uploaded_video.name).suffix
+                suffix=Path(video_name).suffix
             ) as temp:
-                temp.write(uploaded_video.getvalue())
+                temp.write(video_bytes)
                 video_path = temp.name
 
             st.info("Detecting birds... Please wait.")
+
+            results = model.predict(
+                source=video_path,
+                classes=[14],
+                conf=0.25,
+                stream=True,
+                save=False
+            )
 
             cap = cv2.VideoCapture(video_path)
 
@@ -125,93 +181,87 @@ elif page == "Bird Detection":
 
             cap.release()
 
-            if width <= 0 or height <= 0:
-                st.error("Unable to read the uploaded video.")
-            else:
-                output_path = tempfile.NamedTemporaryFile(
-                    delete=False,
-                    suffix=".mp4"
-                ).name
+            output_path = tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".mp4"
+            ).name
 
-                writer = cv2.VideoWriter(
-                    output_path,
-                    cv2.VideoWriter_fourcc(*"mp4v"),
-                    fps if fps > 0 else 25,
-                    (width, height)
-                )
+            writer = cv2.VideoWriter(
+                output_path,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                fps if fps > 0 else 25,
+                (width, height)
+            )
 
-                results = model.predict(
-                    source=video_path,
-                    classes=[14],
-                    conf=0.25,
-                    stream=True,
-                    save=False
-                )
+            total_frames = 0
+            total_birds = 0
 
-                total_frames = 0
-                total_birds = 0
+            for result in results:
+                total_frames += 1
 
-                for result in results:
-                    total_frames += 1
+                if result.boxes is not None:
                     total_birds += len(result.boxes)
-                    writer.write(result.plot())
 
-                writer.release()
+                writer.write(result.plot())
 
-                st.success("Detection completed!")
+            writer.release()
 
-                st.metric("Frames Processed", total_frames)
-                st.metric("Bird Detections", total_birds)
+            st.success("Bird detection completed!")
 
-                st.subheader("Converting video...")
+            st.metric("Frames Processed", total_frames)
+            st.metric("Total Bird Detections", total_birds)
 
-                converted_path = tempfile.NamedTemporaryFile(
-                    delete=False,
-                    suffix=".mp4"
-                ).name
+            converted_path = tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".mp4"
+            ).name
 
-                ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
 
-                conversion = subprocess.run(
-                    [
-                        ffmpeg_exe,
-                        "-y",
-                        "-i", output_path,
-                        "-c:v", "libx264",
-                        "-pix_fmt", "yuv420p",
-                        "-movflags", "+faststart",
-                        converted_path
-                    ],
-                    capture_output=True,
-                    text=True
-                )
+            conversion = subprocess.run(
+                [
+                    ffmpeg_exe,
+                    "-y",
+                    "-i", output_path,
+                    "-c:v", "libx264",
+                    "-pix_fmt", "yuv420p",
+                    "-movflags", "+faststart",
+                    converted_path
+                ],
+                capture_output=True,
+                text=True
+            )
 
-                if conversion.returncode == 0:
-                    st.success("Video conversion successful!")
-                    st.subheader("Annotated Bird Detection Video")
-                    st.video(converted_path)
-                else:
-                    st.error("Video conversion failed.")
-                    st.code(conversion.stderr[-1500:])
+            if conversion.returncode == 0:
+                st.subheader("Bird Detection Output")
+                st.video(converted_path)
+            else:
+                st.error("Video conversion failed.")
+                st.code(conversion.stderr[-1500:])
 
-    
+
 
 elif page == "Bird Tracking":
     st.header("Bird Tracking")
 
     st.write(
-        "Detect and track birds across video frames "
-        "using YOLOv8 and ByteTrack."
+        "YOLOv8 and ByteTrack identify and track birds "
+        "using the video uploaded on Home."
     )
 
-    tracking_video = st.file_uploader(
-        "Upload video for bird tracking",
-        type=["mp4", "avi", "mov"],
-        key="tracking_video"
+    video_bytes = st.session_state.get(
+        "uploaded_video_bytes"
     )
 
-    if tracking_video:
-        st.success("Video uploaded successfully!")
+    video_name = st.session_state.get(
+        "uploaded_video_name"
+    )
+
+    if video_bytes is None:
+        st.warning("Please upload a video on the Home page first.")
+
+    else:
+        st.success(f"Using video: {video_name}")
 
         if st.button("Run Bird Tracking"):
 
@@ -219,9 +269,9 @@ elif page == "Bird Tracking":
 
             with tempfile.NamedTemporaryFile(
                 delete=False,
-                suffix=Path(tracking_video.name).suffix
+                suffix=Path(video_name).suffix
             ) as temp:
-                temp.write(tracking_video.getvalue())
+                temp.write(video_bytes)
                 video_path = temp.name
 
             st.info("Tracking birds... Please wait.")
@@ -337,7 +387,6 @@ elif page == "Bird Tracking":
                 else:
                     st.error("Tracking video conversion failed.")
                     st.code(conversion.stderr[-1500:])
-
 
 
 
