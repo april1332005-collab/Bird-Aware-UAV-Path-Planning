@@ -194,12 +194,7 @@ elif page == "Bird Detection":
                     st.error("Video conversion failed.")
                     st.code(conversion.stderr[-1500:])
 
-    st.subheader("Previous Detection Result")
-
-    if os.path.exists("bird_detection_final.mp4"):
-        st.video("bird_detection_final.mp4")
-
-
+    
 
 elif page == "Bird Tracking":
     st.header("Bird Tracking")
