@@ -1,3 +1,4 @@
+import cv2
 import tempfile
 from pathlib import Path
 from ultralytics import YOLO
@@ -57,41 +58,52 @@ elif page == "Bird Detection":
 
             st.info("Detecting birds... Please wait.")
 
-            results = model.predict(
-                source=video_path,
-                classes=[14],
-                conf=0.25,
-                save=True,
-                project="runs/detect",
-                name="bird_result",
-                exist_ok=True,
-                stream=True
-            )
+           cap = cv2.VideoCapture(video_path)
 
-            total_frames = 0
-            total_birds = 0
+fps = cap.get(cv2.CAP_PROP_FPS)
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+cap.release()
 
-            for result in results:
-                total_frames += 1
-                total_birds += len(result.boxes)
+output_path = tempfile.NamedTemporaryFile(
+    delete=False, suffix=".mp4"
+).name
 
-            st.success("Detection completed!")
-            st.metric("Frames Processed", total_frames)
-            st.metric("Bird Detections", total_birds)
+writer = cv2.VideoWriter(
+    output_path,
+    cv2.VideoWriter_fourcc(*"mp4v"),
+    fps if fps > 0 else 25,
+    (width, height)
+)
 
-            output_dir = Path("runs/detect/bird_result")
-            video_files = list(output_dir.glob("*.avi")) + list(output_dir.glob("*.mp4"))
+st.info("Detecting birds... Please wait.")
 
-            if video_files:
-                st.subheader("Annotated Bird Detection Video")
-                st.video(str(video_files[0]))
-            else:
-                st.warning("Detection completed, but output video was not found.")
+results = model.predict(
+    source=video_path,
+    classes=[14],
+    conf=0.25,
+    stream=True,
+    save=False
+)
 
-    st.subheader("Previous Detection Result")
+total_frames = 0
+total_birds = 0
 
-    if os.path.exists("bird_detection_final.mp4"):
-        st.video("bird_detection_final.mp4")
+for result in results:
+    total_frames += 1
+    total_birds += len(result.boxes)
+
+    annotated_frame = result.plot()
+    writer.write(annotated_frame)
+
+writer.release()
+
+st.success("Detection completed!")
+st.metric("Frames Processed", total_frames)
+st.metric("Bird Detections", total_birds)
+
+st.subheader("Annotated Bird Detection Video")
+st.video(output_path)
 elif page == "Bird Tracking":
     st.header("Bird Tracking")
     if os.path.exists("bird_tracking_final.mp4"):
