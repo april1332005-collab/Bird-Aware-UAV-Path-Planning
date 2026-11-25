@@ -245,33 +245,154 @@ elif page == "Bird Tracking":
                 st.error("Tracking video conversion failed.")
                 st.code(conversion.stderr[-1500:])
 
+
 elif page == "Path Planning":
     st.header("UAV Path Planning")
 
-    birds = [(35,38), (55,48), (72,80), (45,65)]
+    st.write("Adjust bird positions and clearance to compare UAV routes.")
+
+    st.subheader("1. Bird Positions")
+
+    default_birds = [(35, 38), (55, 48), (72, 80), (45, 65)]
+    birds = []
+
+    for i, (default_x, default_y) in enumerate(default_birds):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            bx = st.number_input(
+                f"Bird {i+1} X coordinate",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(default_x),
+                key=f"bird_x_{i}"
+            )
+
+        with col2:
+            by = st.number_input(
+                f"Bird {i+1} Y coordinate",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(default_y),
+                key=f"bird_y_{i}"
+            )
+
+        birds.append((bx, by))
+
+    clearance_limit = st.slider(
+        "Minimum assumed clearance (m)",
+        min_value=1,
+        max_value=30,
+        value=10
+    )
+
+    original = [(0, 0), (100, 100)]
+    manual = [(0, 0), (20, 90), (100, 100)]
+
+    def point_segment_distance(point, start, end):
+        px, py = point
+        x1, y1 = start
+        x2, y2 = end
+
+        dx = x2 - x1
+        dy = y2 - y1
+
+        if dx == 0 and dy == 0:
+            return math.hypot(px - x1, py - y1)
+
+        t = ((px-x1)*dx + (py-y1)*dy) / (dx*dx + dy*dy)
+        t = max(0, min(1, t))
+
+        closest_x = x1 + t*dx
+        closest_y = y1 + t*dy
+
+        return math.hypot(px-closest_x, py-closest_y)
+
+    def route_distance(route):
+        distance = 0
+        for i in range(len(route)-1):
+            distance += math.dist(route[i], route[i+1])
+        return distance
+
+    def route_clearance(route, bird_positions):
+        distances = []
+
+        for bird in bird_positions:
+            for i in range(len(route)-1):
+                distances.append(
+                    point_segment_distance(
+                        bird, route[i], route[i+1]
+                    )
+                )
+
+        return min(distances) if distances else float("inf")
+
+    st.subheader("2. Automatic Route Optimization")
+
+    candidates = []
+
+    for x in range(5, 100, 5):
+        for y in range(5, 100, 5):
+            candidate = [(0, 0), (x, y), (100, 100)]
+
+            distance = route_distance(candidate)
+            clearance = route_clearance(candidate, birds)
+
+            if clearance >= clearance_limit:
+                candidates.append((distance, candidate, clearance))
 
     routes = {
-        "Original": [(0,0), (100,100)],
-        "Manual": [(0,0), (20,90), (100,100)],
-        "Optimized": [(0,0), (60,35), (100,100)]
+        "Original": original,
+        "Manual": manual
     }
 
-    fig, ax = plt.subplots()
+    if candidates:
+        best = min(candidates, key=lambda item: item[0])
+        routes["Optimized"] = best[1]
+        st.success("A feasible optimized route was found!")
+    else:
+        st.warning(
+            "No feasible route found with the current clearance. "
+            "Try adjusting bird positions or the clearance threshold."
+        )
 
-    for name, points in routes.items():
-        x, y = zip(*points)
+    st.subheader("3. Route Comparison")
+
+    for name, route in routes.items():
+        distance = route_distance(route)
+        clearance = route_clearance(route, birds)
+        feasible = clearance >= clearance_limit
+
+        st.write(f"**{name}**")
+        st.write(f"Distance: {distance:.2f} m")
+        st.write(f"Minimum clearance: {clearance:.2f} m")
+        st.write(f"Meets assumed clearance: {'Yes' if feasible else 'No'}")
+
+    st.subheader("4. Dynamic UAV Route Graph")
+
+    fig, ax = plt.subplots(figsize=(9, 6))
+
+    for name, route in routes.items():
+        x, y = zip(*route)
         ax.plot(x, y, marker="o", label=name)
 
     bx, by = zip(*birds)
-    ax.scatter(bx, by, color="red", marker="x", label="Simulated birds")
+    ax.scatter(bx, by, color="red", marker="x",
+               s=100, label="Simulated Birds")
 
+    ax.scatter(0, 0, color="green", s=100, label="Start")
+    ax.scatter(100, 100, color="black", s=100, label="Destination")
+
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 100)
     ax.set_xlabel("X (m)")
     ax.set_ylabel("Y (m)")
-    ax.set_title("UAV Route Comparison")
+    ax.set_title("Dynamic UAV Path Planning")
     ax.legend()
     ax.grid()
 
     st.pyplot(fig)
+
 
 elif page == "Route & Energy Analysis":
     st.header("Route and Energy Analysis")
