@@ -31,12 +31,22 @@ if page == "Home":
 
     st.info("Welcome to the Bird-Aware UAV decision-support dashboard.")
 
+
 elif page == "Bird Detection":
     st.header("Bird Detection")
+
+    uploaded_video = st.file_uploader(
+        "Upload a new bird video",
+        type=["mp4", "avi", "mov"]
+    )
+
+    if uploaded_video:
+        st.success("Video uploaded successfully!")
+        st.video(uploaded_video)
+
+    st.subheader("Previous Detection Result")
     if os.path.exists("bird_detection_final.mp4"):
         st.video("bird_detection_final.mp4")
-    else:
-        st.warning("Detection video not found.")
 
 elif page == "Bird Tracking":
     st.header("Bird Tracking")
