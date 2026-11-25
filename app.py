@@ -146,12 +146,104 @@ elif page == "Bird Detection":
     if os.path.exists("bird_detection_final.mp4"):
         st.video("bird_detection_final.mp4")
 
+
 elif page == "Bird Tracking":
     st.header("Bird Tracking")
-    if os.path.exists("bird_tracking_final.mp4"):
-        st.video("bird_tracking_final.mp4")
-    else:
-        st.warning("Tracking video not found.")
+
+    st.write("Track detected birds across video frames using YOLO and ByteTrack.")
+
+    tracking_video = st.file_uploader(
+        "Upload video for bird tracking",
+        type=["mp4", "avi", "mov"],
+        key="tracking_video"
+    )
+
+    if tracking_video:
+        if st.button("Run Bird Tracking"):
+            model = load_model()
+
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=Path(tracking_video.name).suffix
+            ) as temp:
+                temp.write(tracking_video.getvalue())
+                video_path = temp.name
+
+            st.info("Tracking birds... Please wait.")
+
+            results = model.track(
+                source=video_path,
+                classes=[14],
+                conf=0.25,
+                tracker="bytetrack.yaml",
+                stream=True,
+                persist=True,
+                save=False
+            )
+
+            cap = cv2.VideoCapture(video_path)
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            cap.release()
+
+            output_path = tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".mp4"
+            ).name
+
+            writer = cv2.VideoWriter(
+                output_path,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                fps if fps > 0 else 25,
+                (width, height)
+            )
+
+            total_frames = 0
+            unique_ids = set()
+
+            for result in results:
+                total_frames += 1
+
+                if result.boxes.id is not None:
+                    ids = result.boxes.id.int().cpu().tolist()
+                    unique_ids.update(ids)
+
+                writer.write(result.plot())
+
+            writer.release()
+
+            st.success("Tracking completed!")
+
+            st.metric("Frames Processed", total_frames)
+            st.metric("Unique Tracking IDs", len(unique_ids))
+
+            converted_path = tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".mp4"
+            ).name
+
+            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+            conversion = subprocess.run(
+                [
+                    ffmpeg_exe, "-y",
+                    "-i", output_path,
+                    "-c:v", "libx264",
+                    "-pix_fmt", "yuv420p",
+                    "-movflags", "+faststart",
+                    converted_path
+                ],
+                capture_output=True,
+                text=True
+            )
+
+            if conversion.returncode == 0:
+                st.subheader("Bird Tracking Video")
+                st.video(converted_path)
+            else:
+                st.error("Tracking video conversion failed.")
+                st.code(conversion.stderr[-1500:])
 
 elif page == "Path Planning":
     st.header("UAV Path Planning")
