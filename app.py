@@ -392,6 +392,7 @@ elif page == "Bird Tracking":
 
 
 
+
 elif page == "Path Planning":
     st.header("UAV Path Planning")
 
@@ -400,33 +401,42 @@ elif page == "Path Planning":
         "coordinates extracted from the tracking video."
     )
 
-    # 1. Load tracked bird positions
-    birds = st.session_state.get("tracked_birds", [])
-
-    if not birds:
-        st.warning("No bird coordinates available.")
+    # 1. Check whether tracking has been completed
+    if "tracked_birds" not in st.session_state:
+        st.warning("Bird tracking has not been completed.")
         st.info(
-            "Go to Bird Tracking, upload a video, "
-            "and run Bird Tracking first."
+            "Go to Bird Tracking and run the uploaded video first."
         )
         st.stop()
 
-    st.success(f"{len(birds)} tracked bird positions loaded!")
+    birds = st.session_state["tracked_birds"]
 
+    if birds:
+        st.success(f"{len(birds)} tracked bird positions loaded!")
+    else:
+        st.success(
+            "No birds detected! Proceeding with normal UAV route planning."
+        )
+
+    # 2. Display bird coordinates
     st.subheader("1. Extracted Bird Positions")
 
-    bird_data = []
+    if birds:
+        bird_data = []
 
-    for i, bird in enumerate(birds):
-        bird_data.append({
-            "Bird ID": i + 1,
-            "X Coordinate": round(bird[0], 2),
-            "Y Coordinate": round(bird[1], 2)
-        })
+        for i, bird in enumerate(birds):
+            bird_data.append({
+                "Bird ID": i + 1,
+                "X Coordinate": round(bird[0], 2),
+                "Y Coordinate": round(bird[1], 2)
+            })
 
-    st.dataframe(bird_data, use_container_width=True)
+        st.dataframe(bird_data, use_container_width=True)
 
-    # 2. Clearance threshold
+    else:
+        st.info("No bird coordinates available for this video.")
+
+    # 3. Clearance threshold
     clearance_limit = st.slider(
         "Minimum assumed clearance (map units)",
         min_value=1,
@@ -434,11 +444,11 @@ elif page == "Path Planning":
         value=10
     )
 
-    # 3. Route definitions
+    # 4. Route definitions
     original = [(0, 0), (100, 100)]
     manual = [(0, 0), (20, 90), (100, 100)]
 
-    # 4. Distance from a point to a route segment
+    # 5. Distance from point to route segment
     def point_segment_distance(point, start, end):
         px, py = point
         x1, y1 = start
@@ -464,7 +474,7 @@ elif page == "Path Planning":
             py - closest_y
         )
 
-    # 5. Route distance
+    # 6. Route distance
     def route_distance(route):
         distance = 0
 
@@ -476,8 +486,11 @@ elif page == "Path Planning":
 
         return distance
 
-    # 6. Minimum bird clearance
+    # 7. Minimum bird clearance
     def route_clearance(route, bird_positions):
+        if not bird_positions:
+            return None
+
         distances = []
 
         for bird in bird_positions:
@@ -490,14 +503,13 @@ elif page == "Path Planning":
                     )
                 )
 
-        return min(distances) if distances else float("inf")
+        return min(distances) if distances else None
 
-    # 7. Two-waypoint optimization
+    # 8. Automatic route optimization
     st.subheader("2. Automatic Route Optimization")
 
     candidates = []
 
-    # Search grid: 10-unit intervals
     waypoints = [
         (x, y)
         for x in range(10, 100, 10)
@@ -528,56 +540,71 @@ elif page == "Path Planning":
                 (distance, candidate, clearance)
             )
 
-    # Find shortest route meeting the threshold
-    feasible_candidates = [
-        item for item in candidates
-        if item[2] >= clearance_limit
-    ]
-
     routes = {
         "Original": original,
         "Manual": manual
     }
 
-    if feasible_candidates:
+    if not birds:
+        # No bird obstacles: choose shortest tested route
         best = min(
-            feasible_candidates,
+            candidates,
             key=lambda item: item[0]
         )
 
         routes["Optimized"] = best[1]
 
         st.success(
-            "Feasible optimized route found!"
+            "Optimized route generated successfully!"
         )
 
-        st.write(
-            f"Best route clearance: {best[2]:.2f} map units"
+        st.info(
+            "No bird obstacles were detected. "
+            "The shortest tested route has been selected."
         )
 
     else:
-        # Select greatest clearance among tested routes
-        best = max(
-            candidates,
-            key=lambda item: (item[2], -item[0])
-        )
+        feasible_candidates = [
+            item for item in candidates
+            if item[2] >= clearance_limit
+        ]
 
-        routes["Best Available"] = best[1]
+        if feasible_candidates:
+            best = min(
+                feasible_candidates,
+                key=lambda item: item[0]
+            )
 
-        st.warning(
-            "No tested route meets the assumed clearance. "
-            "Showing the route with the greatest clearance."
-        )
+            routes["Optimized"] = best[1]
 
-        st.write(
-            f"Best available clearance: {best[2]:.2f} map units"
-        )
+            st.success("Feasible optimized route found!")
+
+            st.write(
+                f"Best route clearance: {best[2]:.2f} map units"
+            )
+
+        else:
+            best = max(
+                candidates,
+                key=lambda item: (item[2], -item[0])
+            )
+
+            routes["Best Available"] = best[1]
+
+            st.warning(
+                "No tested route meets the assumed clearance. "
+                "Showing the route with greatest clearance."
+            )
+
+            st.write(
+                f"Best available clearance: {best[2]:.2f} map units"
+            )
 
     st.write(
         f"Waypoint combinations tested: {total_combinations}"
     )
 
-    # 8. Route comparison
+    # 9. Route comparison
     st.subheader("3. Route Comparison")
 
     comparison_data = []
@@ -587,18 +614,22 @@ elif page == "Path Planning":
         distance = route_distance(route)
         clearance = route_clearance(route, birds)
 
-        feasible = clearance >= clearance_limit
+        if clearance is None:
+            clearance_display = "N/A - No birds detected"
+            feasibility = "No bird obstacles"
+        else:
+            clearance_display = round(clearance, 2)
+            feasibility = (
+                "Yes" if clearance >= clearance_limit else "No"
+            )
 
         comparison_data.append({
             "Route": name,
             "Distance (map units)": round(distance, 2),
-            "Minimum Clearance (map units)": round(clearance, 2),
-            "Meets Assumed Clearance": (
-                "Yes" if feasible else "No"
-            )
+            "Minimum Clearance (map units)": clearance_display,
+            "Meets Assumed Clearance": feasibility
         })
 
-    # Save results for Energy Analysis
     st.session_state["route_comparison_data"] = comparison_data
 
     st.dataframe(
@@ -606,7 +637,7 @@ elif page == "Path Planning":
         use_container_width=True
     )
 
-    # 9. Route graph
+    # 10. Route graph
     st.subheader("4. Dynamic UAV Route Graph")
 
     fig, ax = plt.subplots(figsize=(9, 6))
@@ -615,15 +646,24 @@ elif page == "Path Planning":
         x, y = zip(*route)
         ax.plot(x, y, marker="o", label=name)
 
-    bx, by = zip(*birds)
+    if birds:
+        bx, by = zip(*birds)
 
-    ax.scatter(
-        bx, by,
-        color="red",
-        marker="x",
-        s=100,
-        label="Tracked Birds"
-    )
+        ax.scatter(
+            bx, by,
+            color="red",
+            marker="x",
+            s=100,
+            label="Tracked Birds"
+        )
+
+    else:
+        ax.text(
+            50, 90,
+            "No birds detected",
+            ha="center",
+            fontsize=11
+        )
 
     ax.scatter(
         0, 0,
@@ -645,7 +685,7 @@ elif page == "Path Planning":
     ax.set_xlabel("Normalized X Coordinate")
     ax.set_ylabel("Normalized Y Coordinate")
 
-    ax.set_title("Two-Waypoint Bird-Aware UAV Path Planning")
+    ax.set_title("Bird-Aware UAV Path Planning")
 
     ax.legend()
     ax.grid()
@@ -653,10 +693,11 @@ elif page == "Path Planning":
     st.pyplot(fig)
 
     st.caption(
-        "This is a 2D simulation using normalized image "
-        "coordinates. Clearance is not a real-world "
-        "collision-safety measurement."
+        "2D simulation using normalized image coordinates. "
+        "No-bird results indicate no bird obstacles were detected "
+        "in the processed video, not guaranteed real-world safety."
     )
+
 
 
 
