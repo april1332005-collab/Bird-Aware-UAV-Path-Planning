@@ -26,8 +26,7 @@ page = st.sidebar.radio(
      "Path Planning", "Route & Energy Analysis"]
 )
 
-st.title("AI-Based Bird-Aware UAV System")
-st.caption("Bird Detection | Tracking | Path Optimization")
+
 
 
 
@@ -36,6 +35,8 @@ st.caption("Bird Detection | Tracking | Path Optimization")
 
 if page == "Home":
     st.title("AI-Based Bird-Aware UAV Path Planning")
+    st.caption("Bird Detection | Tracking | Path Optimization")
+
 
     st.write(
         "An AI-based software prototype for bird detection, "
