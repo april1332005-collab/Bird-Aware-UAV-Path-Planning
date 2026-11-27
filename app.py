@@ -32,6 +32,7 @@ st.caption("Bird Detection | Tracking | Path Optimization")
 
 
 
+
 if page == "Home":
     st.title("AI-Based Bird-Aware UAV Path Planning")
 
@@ -39,10 +40,6 @@ if page == "Home":
         "An AI-based software prototype for bird detection, "
         "tracking and UAV route planning."
     )
-
-    st.divider()
-
-    st.subheader("Upload Project Video")
 
     uploaded_video = st.file_uploader(
         "Upload your video",
@@ -64,8 +61,7 @@ if page == "Home":
         )
 
         st.info(
-            "Your uploaded video is ready for "
-            "Bird Detection and Bird Tracking."
+            "Video ready for Bird Detection and Bird Tracking."
         )
 
     elif "uploaded_video_bytes" in st.session_state:
@@ -76,8 +72,6 @@ if page == "Home":
 
     else:
         st.warning("Please upload a video to begin.")
-
-
 
 
 
