@@ -23,7 +23,7 @@ st.sidebar.title("🛩️ Bird-Aware UAV")
 page = st.sidebar.radio(
     "Navigation",
     ["Home", "Bird Detection", "Bird Tracking",
-     "Path Planning", "Route & Energy Analysis"]
+     "Path Planning", "Route & Energy Analysis"," Collission Risk Assessment"]
 )
 
 
@@ -708,7 +708,7 @@ elif page == "Path Planning":
         "in the processed video, not guaranteed real-world safety."
     )
 
-
+z
 
 
 elif page == "Route & Energy Analysis":
@@ -791,3 +791,125 @@ elif page == "Route & Energy Analysis":
 
 st.sidebar.divider()
 st.sidebar.caption("UAV Path Planning Project | 2026")
+
+
+elif page == "Collision Risk Assessment":
+
+    st.header("AI-Based Bird Collision Risk Assessment")
+
+    st.write(
+        "Estimate potential bird collision risk "
+        "before UAV take-off using available bird activity information."
+    )
+
+    st.divider()
+
+    st.subheader("1. Flight Information")
+
+    flight_time = st.selectbox(
+        "Proposed UAV take-off time",
+        ["Early Morning", "Morning", "Afternoon",
+         "Evening", "Night"]
+    )
+
+    bird_activity = st.selectbox(
+        "Observed bird activity",
+        ["No activity observed", "Low", "Moderate", "High"]
+    )
+
+    bird_movement = st.selectbox(
+        "Bird movement near proposed route",
+        ["No movement observed", "Away from route",
+         "Across route", "Towards route"]
+    )
+
+    flock = st.selectbox(
+        "Bird grouping",
+        ["Single bird", "Small group", "Large flock", "Unknown"]
+    )
+
+    st.divider()
+
+    st.subheader("2. Collision Risk Estimation")
+
+    if st.button("Calculate Collision Risk"):
+
+        risk_score = 0
+
+        # Bird activity
+        activity_scores = {
+            "No activity observed": 0,
+            "Low": 10,
+            "Moderate": 20,
+            "High": 30
+        }
+
+        risk_score += activity_scores[bird_activity]
+
+        # Bird movement
+        movement_scores = {
+            "No movement observed": 0,
+            "Away from route": 5,
+            "Across route": 25,
+            "Towards route": 30
+        }
+
+        risk_score += movement_scores[bird_movement]
+
+        # Grouping
+        flock_scores = {
+            "Single bird": 5,
+            "Small group": 10,
+            "Large flock": 20,
+            "Unknown": 10
+        }
+
+        risk_score += flock_scores[flock]
+
+        # Time-based observation factor
+        time_scores = {
+            "Early Morning": 10,
+            "Morning": 10,
+            "Afternoon": 5,
+            "Evening": 10,
+            "Night": 0
+        }
+
+        risk_score += time_scores[flight_time]
+
+        risk_score = min(risk_score, 100)
+
+        st.subheader("3. Risk Assessment Result")
+
+        st.metric(
+            "Illustrative Risk Score",
+            f"{risk_score}/100"
+        )
+
+        st.progress(risk_score / 100)
+
+        if risk_score < 25:
+            st.success("Low estimated risk")
+
+        elif risk_score < 50:
+            st.info("Moderate estimated risk")
+
+        elif risk_score < 75:
+            st.warning("High estimated risk")
+
+        else:
+            st.error("Very high estimated risk")
+
+        st.caption(
+            "This is an experimental rule-based risk score, "
+            "not a validated AI collision probability. "
+            "Time-based weights are illustrative and do not "
+            "represent verified species behaviour."
+        )
+
+        st.info(
+            "A real collision probability requires "
+            "validated bird activity data, species information, "
+            "flight trajectory and historical observations."
+        )
+
