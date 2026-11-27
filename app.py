@@ -23,7 +23,7 @@ st.sidebar.title("🛩️ Bird-Aware UAV")
 page = st.sidebar.radio(
     "Navigation",
     ["Home", "Bird Detection", "Bird Tracking",
-     "Path Planning", "Route & Energy Analysis","Collission Risk Assessment"]
+     "Path Planning", "Route & Energy Analysis","Collision Risk Assessment"]
 )
 
 
