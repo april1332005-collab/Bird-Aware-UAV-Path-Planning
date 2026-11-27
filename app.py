@@ -708,9 +708,6 @@ elif page == "Path Planning":
         "in the processed video, not guaranteed real-world safety."
     )
 
-z
-
-
 elif page == "Route & Energy Analysis":
     st.header("Route and Energy Analysis")
 
