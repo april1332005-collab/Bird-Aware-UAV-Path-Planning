@@ -786,8 +786,6 @@ elif page == "Route & Energy Analysis":
         "UAV power or battery consumption."
     )
 
-st.sidebar.divider()
-st.sidebar.caption("UAV Path Planning Project | 2026")
 
 elif page == "Collision Risk Assessment":
     st.header("AI-Based Bird Collision Risk Assessment")
@@ -908,3 +906,5 @@ elif page == "Collision Risk Assessment":
             "flight trajectory and historical observations."
         )
 
+st.sidebar.divider()
+st.sidebar.caption("UAV Path Planning Project | 2026")
