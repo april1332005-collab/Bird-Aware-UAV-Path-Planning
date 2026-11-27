@@ -33,6 +33,7 @@ st.caption("Bird Detection | Tracking | Path Optimization")
 
 
 
+
 if page == "Home":
     st.title("AI-Based Bird-Aware UAV Path Planning")
 
@@ -48,26 +49,15 @@ if page == "Home":
     )
 
     if uploaded_video is not None:
-        st.session_state["uploaded_video_bytes"] = (
-            uploaded_video.getvalue()
-        )
+        st.session_state["uploaded_video_bytes"] = uploaded_video.getvalue()
+        st.session_state["uploaded_video_name"] = uploaded_video.name
 
-        st.session_state["uploaded_video_name"] = (
-            uploaded_video.name
-        )
-
-        st.success(
-            f"Video ready: {uploaded_video.name}"
-        )
-
-        st.info(
-            "Video ready for Bird Detection and Bird Tracking."
-        )
+        st.success(f"Video ready: {uploaded_video.name}")
+        st.info("Video ready for Bird Detection and Bird Tracking.")
 
     elif "uploaded_video_bytes" in st.session_state:
         st.success(
-            f"Video ready: "
-            f"{st.session_state['uploaded_video_name']}"
+            f"Video ready: {st.session_state['uploaded_video_name']}"
         )
 
     else:
