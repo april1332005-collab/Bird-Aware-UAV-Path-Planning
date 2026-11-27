@@ -31,6 +31,7 @@ st.caption("Bird Detection | Tracking | Path Optimization")
 
 
 
+
 if page == "Home":
     st.title("AI-Based Bird-Aware UAV Path Planning")
 
@@ -41,11 +42,10 @@ if page == "Home":
 
     st.divider()
 
-    # COMMON VIDEO UPLOAD
     st.subheader("Upload Project Video")
 
     uploaded_video = st.file_uploader(
-        "Upload your video here (only once)",
+        "Upload your video",
         type=["mp4", "avi", "mov"],
         key="common_video_uploader"
     )
@@ -54,78 +54,28 @@ if page == "Home":
         st.session_state["uploaded_video_bytes"] = (
             uploaded_video.getvalue()
         )
+
         st.session_state["uploaded_video_name"] = (
             uploaded_video.name
         )
 
-    if "uploaded_video_bytes" in st.session_state:
+        st.success(
+            f"Video ready: {uploaded_video.name}"
+        )
+
+        st.info(
+            "Your uploaded video is ready for "
+            "Bird Detection and Bird Tracking."
+        )
+
+    elif "uploaded_video_bytes" in st.session_state:
         st.success(
             f"Video ready: "
             f"{st.session_state['uploaded_video_name']}"
         )
-        st.info(
-            "This video will be used by both Bird Detection "
-            "and Bird Tracking."
-        )
+
     else:
-        st.warning("Upload a video to begin the project.")
-
-    st.divider()
-
-    # PROJECT OVERVIEW
-    st.subheader("Project Overview")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric(
-            "Bird Tracking IDs",
-            len(st.session_state.get("tracked_birds", []))
-        )
-
-    with col2:
-        route_data = st.session_state.get(
-            "route_comparison_data", []
-        )
-        st.metric("Routes Compared", len(route_data))
-
-    with col3:
-        route_available = any(
-            r["Route"] in ["Optimized", "Best Available"]
-            for r in route_data
-        )
-
-        st.metric(
-            "Optimized Route",
-            "Available" if route_available else "Pending"
-        )
-
-    st.divider()
-
-    # WORKFLOW
-    st.subheader("System Workflow")
-
-    st.markdown("""
-    1. **Video Upload** – Upload the video once.
-    2. **Bird Detection** – YOLOv8 identifies birds.
-    3. **Bird Tracking** – ByteTrack assigns IDs and extracts coordinates.
-    4. **Path Planning** – Alternative UAV routes are evaluated.
-    5. **Energy Analysis** – Estimated route energy is compared.
-    """)
-
-    st.divider()
-
-    st.subheader("Project Technology")
-
-    st.write(
-        "Python | Streamlit | YOLOv8 | ByteTrack | "
-        "OpenCV | Matplotlib | Pandas"
-    )
-
-    st.caption(
-        "Software simulation prototype – "
-        "not connected to a physical UAV."
-    )
+        st.warning("Please upload a video to begin.")
 
 
 
